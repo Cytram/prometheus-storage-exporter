@@ -1,0 +1,54 @@
+apiVersion: apps/v1beta1
+kind: StatefulSet
+metadata:
+  name: prometheus
+  namespace: prometheus
+  labels:
+    app: prometheus
+spec:
+  serviceName: prometheus
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+      annotations:
+        prometheus.io/path: '/metrics'
+        prometheus.io/port: '9405'
+        prometheus.io/scrape: 'true'
+    spec:
+      containers:
+      - image: prom/prometheus
+        name: prometheus
+        securityContext:
+          runAsUser: 0
+        args:
+        - --config.file=/prometheus/config/prometheus.yml
+        - --storage.tsdb.path=/prometheus/data
+        - --storage.tsdb.retention=8766h
+        volumeMounts:
+         - mountPath: /prometheus/config/
+           name: prometheus-config
+         - mountPath: /prometheus/data
+           name: prometheus-data
+        ports:
+         - containerPort: 9090
+           name: web
+      - name: storage-exporter
+        image: prometheus-storage-exporter:latest
+        env:
+        - name: "PATH"
+          value: "/prometheus/data"
+        ports:
+          - containerPort: 9405
+        volumeMounts:
+         - mountPath: /prometheus/data
+           name: prometheus-data
+
+      volumes:
+      - name: prometheus-config
+        configMap:
+          name: prometheus-config
